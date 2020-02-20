@@ -62,6 +62,15 @@ class Library(object):
         total_scores = sum([self.book_scores[book] for book in not_done_books])
         return total_scores/len_not_done
 
+    def can_send_entire_time(self, days_left, books_done):
+        not_done_books = [book for book in self.books if book not in books_done]
+        possible_amount = days_left * self.books_per_day
+        if possible_amount > len(not_done_books):
+            return 1
+        else:
+            return 0
+
+
 
 def get_input(filename):
     with open(filename, 'r') as f:
@@ -96,10 +105,13 @@ def solve(libraries, days_for_scanning, out_file_name):
 
     active_libraries = []
     books_done = set()
+    original_amount_of_libraries = len(libraries)
     while True:
         # Sort libraries by highest score for days_left - signup time
         libraries = sorted(libraries,
-                           key=lambda library: library.score_for_x_days(days_left - library.signup_time, books_done),
+                           key=lambda library: library.score_for_x_days(days_left - library.signup_time,
+                                                                        []) * library.can_send_entire_time(
+                               days_left-library.signup_time, books_done),
                            reverse=True)
 
         # Take the top 10 libraries, sort by avg score
@@ -121,9 +133,6 @@ def solve(libraries, days_for_scanning, out_file_name):
         if days_left <= 0 or len(libraries) == 0:
             break
 
-    # for tup in active_libraries:
-    #     print(tup)
-
     with open(out_file_name, 'w+') as out_file:
         total_libraries = [tup for tup in active_libraries if tup[1] > 0]
         out_file.write('{}\n'.format(len(total_libraries)))
@@ -135,21 +144,32 @@ def solve(libraries, days_for_scanning, out_file_name):
                     out_str += str(book_id) + ' '
                 out_file.write(out_str.rstrip(' ') + '\n')
 
+def purge_libraries(libraries, total_days):
+    new_libaries = []
+    for library in libraries:
+        if library.signup_time > total_days / 7:
+            pass
+            # print('PURGE')
+        else:
+            new_libaries.append(library)
+
+    return new_libaries
+
 
 def main():
     input_files = [
         # 'a_example.txt',
         # 'b_read_on.txt',
         # 'c_incunabula.txt',
-        # 'd_tough_choices.txt',
-        # 'e_also_big.in',
+        'd_tough_choices.txt',
         # 'e_so_many_books.txt',
-        'f_libraries_of_the_world.txt'
+        # 'f_libraries_of_the_world.txt'
 ]
     for input_file in input_files:
         start_time = time()
         file, ext = input_file.split('.')
         libraries, days_for_scanning = get_input(input_file)
+        libraries = purge_libraries(libraries, days_for_scanning)
         solve(libraries, days_for_scanning, file + '_out.' + ext)
         print('Done with file ', input_file, ' in time ', (time()-start_time))
 
