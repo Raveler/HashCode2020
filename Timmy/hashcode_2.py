@@ -5,6 +5,7 @@ import os
 from time import time
 from collections import OrderedDict
 
+
 from pprint import pprint
 
 
@@ -46,12 +47,20 @@ class Library(object):
     def time_to_completion(self, start_time=0):
         return start_time + self.signup_time + math.ceil(self.book_amount / self.books_per_day)
 
-    def score_for_x_days(self, x_days):
-        return sum([self.book_scores[book_id] for book_id in self.books[0:x_days * self.books_per_day]])
+    def score_for_x_days(self, x_days, books_done):
+        not_done_books = [book for book in self.books if book not in books_done]
+        return sum([self.book_scores[book_id] for book_id in not_done_books[0:x_days * self.books_per_day]])
 
-    def books_for_days_left(self, days_left):
+    def books_for_days_left(self, days_left, books_done):
+        not_done_books = [book for book in self.books if book not in books_done]
         possible_books = self.books_per_day * days_left
-        return self.books[:possible_books]
+        return not_done_books[:possible_books]
+
+    def average_score_for_books(self, books_done):
+        not_done_books = [book for book in self.books if book not in books_done]
+        len_not_done = len(not_done_books) or 1
+        total_scores = sum([self.book_scores[book] for book in not_done_books])
+        return total_scores/len_not_done
 
 
 def get_input(filename):
@@ -86,15 +95,26 @@ def solve(libraries, days_for_scanning, out_file_name):
     days_left = days_for_scanning
 
     active_libraries = []
+    books_done = set()
     while True:
         # Sort libraries by highest score for days_left - signup time
-        libraries = sorted(libraries, key=lambda library: library.score_for_x_days(days_left - library.signup_time))
+        libraries = sorted(libraries,
+                           key=lambda library: library.score_for_x_days(days_left - library.signup_time, books_done),
+                           reverse=True)
+
+        # Take the top 10 libraries, sort by avg score
+        # Sort by avg book score
+        # top_libraries = sorted(libraries[0:10], key=lambda library: library.average_score_for_books(books_done),
+        #                    reverse=True)
+
         chosen_library = libraries[0]
         days_left -= chosen_library.signup_time
 
         # Books that we can scan from this library given we have days_left left
-        books_for_chosen_library = chosen_library.books_for_days_left(days_left)
+        books_for_chosen_library = chosen_library.books_for_days_left(days_left, books_done)
         active_libraries.append((chosen_library.library_id, len(books_for_chosen_library), books_for_chosen_library))
+        for book in books_for_chosen_library:
+            books_done.add(book)
 
         libraries = libraries[1:]
 
@@ -105,21 +125,27 @@ def solve(libraries, days_for_scanning, out_file_name):
     #     print(tup)
 
     with open(out_file_name, 'w+') as out_file:
-        out_file.write('{}\n'.format(len(active_libraries)))
+        total_libraries = [tup for tup in active_libraries if tup[1] > 0]
+        out_file.write('{}\n'.format(len(total_libraries)))
         for tup in active_libraries:
             if (tup[1] > 0):
                 out_file.write('{} {}\n'.format(tup[0], tup[1]))
-                out_file.write('{}\n'.format(' '.join(list(map(str, tup[2])))))
+                out_str = ''
+                for book_id in tup[2]:
+                    out_str += str(book_id) + ' '
+                out_file.write(out_str.rstrip(' ') + '\n')
 
 
 def main():
-    input_files = ['a_example.txt',
-                   'b_read_on.txt',
-                   'c_incunabula.txt',
-                   'd_tough_choices.txt',
-                   'e_also_big.in',
-                   'e_so_many_books.txt',
-                   'f_libraries_of_the_world.txt']
+    input_files = [
+        # 'a_example.txt',
+        # 'b_read_on.txt',
+        # 'c_incunabula.txt',
+        # 'd_tough_choices.txt',
+        # 'e_also_big.in',
+        # 'e_so_many_books.txt',
+        'f_libraries_of_the_world.txt'
+]
     for input_file in input_files:
         start_time = time()
         file, ext = input_file.split('.')
